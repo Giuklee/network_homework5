@@ -95,7 +95,7 @@ int main()
 	static const char get_str[] = "GET /";
 	time_t local_tv_sec;
 	unsigned short checksum_s, checksum_c;
-	int sequence_s;
+	int sequence_s, sequence_c;
 	int header_len_s, header_len_c;
 
 
@@ -157,23 +157,27 @@ int main()
 		if (strncmp(pkt_data+54, get_str, sizeof(get_str) - 1) == 0) { // find "GET /"
 			printf("==================================\n");
 			// send "blocked" message to server
-		//	printf("### %d ###\n",header->len);
 			memcpy(packet_s, pkt_data, 54);
-		//	memcpy(packet_c, pkt_data, 54);
+			memcpy(packet_c, pkt_data, 54);
 			for (i = 0; i < 54; i++) {
 				printf("%x ", packet_s[i]);
 			}
-			printf("##tcp sport : %d\n", tcphdr->source_port);
-			printf("##tcp dport : %d\n", tcphdr->dest_port);
 			memcpy(packet_s + 54, "blocked\n\n\n", strlen("blocked\n\n\n"));
-		//	memcpy(packet_c + 54, "blocked\n\n\n", strlen("blocked\n\n\n"));
-
+			memcpy(packet_c + 54, "blocked\n\n\n", strlen("blocked\n\n\n"));
 			tcphdr->rst = 1;
 			//tcphdr->ack = 0;
 			//tcphdr->syn = 1;
 			//tcphdr->urg = 1;
 			//tcphdr->psh = 1;
-			//tcphdr->fin = 1;
+			//tcphdr->fin = 1; 
+
+			//tcphdr2->rst = 1;
+			//tcphdr2->ack = 0;
+			//tcphdr2->syn = 1;
+			//tcphdr2->urg = 1;
+			//tcphdr2->psh = 1;
+			tcphdr2->fin = 1; 
+
 			sequence_s =
 				((tcphdr->sequence[0]) << 24) +
 				((tcphdr->sequence[1]) << 16) +
@@ -185,44 +189,70 @@ int main()
 			tcphdr->sequence[2] = ((sequence_s & 0xFF00)>>8);
 			tcphdr->sequence[1] = ((sequence_s & 0xFF0000) >> 16);
 			tcphdr->sequence[0] = ((sequence_s & 0xFF000000) >> 24);
-
 			
 			header_len_s = (header->len) - 14;
+			header_len_c = (header->len) - 14;
 			iphdr->ip_total_length[0] = ((header_len_s & 0xFF00)>>16);
 			iphdr->ip_total_length[1] = (header_len_s & 0xFF);
+			iphdr2->ip_total_length[0] = ((header_len_c & 0xFF00) >> 16);
+			iphdr2->ip_total_length[1] = (header_len_c & 0xFF);
+
 			//printf("ip length : %x %x \n", iphdr->ip_total_length[0], iphdr->ip_total_length[1]);
 			checksum_s = SetCheckSum(packet_s, header);
 			checksum_s = ((checksum_s << 8) & 0xFF00) + ((checksum_s >> 8) & 0xFF);
 			tcphdr->checksum = checksum_s;
-			printf("iphdr len :  %d\n", (iphdr->ip_header_len));
-			printf("ip chksum bef:  %x\n", (iphdr->ip_checksum));
+
+			
+			//printf("iphdr len :  %d\n", (iphdr->ip_header_len));
+			//printf("ip chksum bef:  %x\n", (iphdr->ip_checksum));
 			iphdr->ip_checksum = ip_sum_calc((iphdr->ip_header_len)*4, iphdr);
-			printf("ip chksum aft:  %x\n", (iphdr->ip_checksum));
-			printf("tcp sport : %d\n", tcphdr->source_port);
-			printf("tcp dport : %d\n", tcphdr->dest_port);
+			//printf("ip chksum aft:  %x\n", (iphdr->ip_checksum));
 			////////// packet to client //////////
-			/*
+			
 			memcpy(ethhdr2->dest, ethhdr->source, 6);
 			memcpy(ethhdr2->source, ethhdr->dest, 6);
-			header_len_c = (header->len) - 14;
-			iphdr2->ip_total_length[0] = ((header_len_c & 0xFF00) >> 16);
-			iphdr2->ip_total_length[1] = (header_len_c & 0xFF);
+			//header_len_c = (header->len) - 14;
+			//iphdr2->ip_total_length[0] = ((header_len_c & 0xFF00) >> 16);
+			//iphdr2->ip_total_length[1] = (header_len_c & 0xFF);
 			
-			memcpy(tcphdr2->dest_port, tcphdr->source_port, 2);
-			memcpy(tcphdr2->source_port, tcphdr->dest_port, 2);
+			memcpy(&(tcphdr2->dest_port), &(tcphdr->source_port), 2);
+			memcpy(&(tcphdr2->source_port), &(tcphdr->dest_port), 2);
 			memcpy(tcphdr2->sequence, tcphdr->acknowledge, 4);
 			memcpy(tcphdr2->acknowledge, tcphdr->sequence, 4);
+			//checksum_c = SetCheckSum(packet_c, header);
+			//checksum_c = ((checksum_c << 8) & 0xFF00) + ((checksum_c >> 8) & 0xFF);
+			//tcphdr2->checksum = checksum_c;
+			memcpy(&(iphdr2->ip_srcaddr), &(iphdr->ip_destaddr), 4);
+			memcpy(&(iphdr2->ip_destaddr), &(iphdr->ip_srcaddr), 4);
 			checksum_c = SetCheckSum(packet_c, header);
 			checksum_c = ((checksum_c << 8) & 0xFF00) + ((checksum_c >> 8) & 0xFF);
 			tcphdr2->checksum = checksum_c;
-			*/
+			// send packet to server
 			if (pcap_sendpacket(adhandle, packet_s, header->len) == 0) {
 				
 				printf("[s]sending packet success\n");
 				printf("[s]seq aft : %x %x %x %x\n", tcphdr->sequence[0], tcphdr->sequence[1], tcphdr->sequence[2], tcphdr->sequence[3]);
+				printf("[s]tcp sport : %d\n", tcphdr->source_port);
+				printf("[s]tcp dport : %d\n", tcphdr->dest_port);
+				printf("[s]ip src : %d\n", iphdr->ip_srcaddr);
+				printf("[s]ip dst : %d\n", iphdr->ip_destaddr);
 			}
 			else {
 				printf("[s]sending packet failed\n");
+			}
+
+			// send packet to clinet
+			if (pcap_sendpacket(adhandle, packet_c, header->len) == 0) {
+
+				printf("[c]sending packet success\n");
+				printf("[c]seq aft : %x %x %x %x\n", tcphdr->sequence[0], tcphdr->sequence[1], tcphdr->sequence[2], tcphdr->sequence[3]);
+				printf("[c]tcp sport : %d\n", tcphdr2->source_port);
+				printf("[c]tcp dport : %d\n", tcphdr2->dest_port);
+				printf("[c]ip src : %d\n", iphdr2->ip_srcaddr);
+				printf("[c]ip dst : %d\n", iphdr2->ip_destaddr);
+			}
+			else {
+				printf("[c]sending packet failed\n");
 			}
 
 		}
@@ -297,7 +327,6 @@ int SetCheckSum(unsigned char *pkt, struct pcap_pkthdr *hdr) {
 	}
 	result = total;
 	result = ~result;
-	//free(tcp);
 	return result;
 }
 
