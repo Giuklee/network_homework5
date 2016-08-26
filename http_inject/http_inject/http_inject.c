@@ -168,7 +168,7 @@ int main()
 			memcpy(packet_s + 54, "blocked\n\n\n", strlen("blocked\n\n\n"));
 		//	memcpy(packet_c + 54, "blocked\n\n\n", strlen("blocked\n\n\n"));
 
-			//tcphdr->rst = 1;
+			tcphdr->rst = 1;
 			//tcphdr->ack = 0;
 			//tcphdr->syn = 1;
 			//tcphdr->urg = 1;
